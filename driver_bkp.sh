@@ -65,7 +65,7 @@ echo "***********************************************************************" >
 echo "===================== $DIA ======================" >> "$FILE_LOG"
 
 echo "===> Abrindo compartilhamento via Samba... - $(date +%H:%M:%S)." >> "$FILE_LOG"
-mount -t cifs //"$IP_SERVER_SAMBA"/backup01/ "$DIR_LOCAL" -o username=backup,password=hub102530,dir_mode=0777
+mount -t cifs //"$IP_SERVER_SAMBA"/backup01/ "$DIR_LOCAL" -o username=backup,password=password,dir_mode=0777
 if [ "$?" -ne 0 ]; then
     echo "-*-*- Houve algum problema ao montar o compartilhamento com o Samba." >> "$FILE_LOG"
     echo "" >> "$FILE_LOG"
