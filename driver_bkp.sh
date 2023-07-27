@@ -27,12 +27,12 @@
 # ======== VARIAVEIS ============================================================== #
 export DIA=$(date +%d-%m-%Y-%H:%M:%S)
 export DIA_LOG=$(date +%d%m%Y-%H%M%S)
-FILE_LOG="/dados/Logs/drive_bkp_$DIA_LOG.log"
+FILE_LOG=".../drive_bkp_$DIA_LOG.log"
 IP_SERVER_SAMBA="IPdoSrvSamba"
 IP_SERVER_RSYNC="IPSrvLogs"
 USER_SERVER_REMOTE="user"
-DIR_SERVER_REMOTE="/srv/logs/google-drive"
-DIR_LOCAL="/mnt/driver"
+DIR_SERVER_REMOTE=".../google-drive"
+DIR_LOCAL=".../driver"
 DRIVE="/home/user/driver"
 # ================================================================================ #
 
@@ -65,7 +65,7 @@ echo "***********************************************************************" >
 echo "===================== $DIA ======================" >> "$FILE_LOG"
 
 echo "===> Abrindo compartilhamento via Samba... - $(date +%H:%M:%S)." >> "$FILE_LOG"
-mount -t cifs //"$IP_SERVER_SAMBA"/backup01/ "$DIR_LOCAL" -o username=backup,password=password,dir_mode=0777
+mount -t cifs //"$IP_SERVER_SAMBA"/back/ "$DIR_LOCAL" -o username=userSystem,password=senhaForte,dir_mode=0777
 if [ "$?" -ne 0 ]; then
     echo "-*-*- Houve algum problema ao montar o compartilhamento com o Samba." >> "$FILE_LOG"
     echo "" >> "$FILE_LOG"
@@ -108,13 +108,13 @@ for i in $(ls -lh "$DIR_LOCAL" | tr -s ' ' | cut -f 9 -d " " -s); do
             echo "===> Transferindo o arquivo $y para o Google-Driver..." >> "$FILE_LOG"
 
             DST="$DRIVE"/"$i"
-            su -c "ls -lh $DST 1> /dev/null  2>&1" -s /bin/bash fsf
+            su -c "ls -lh $DST 1> /dev/null  2>&1" -s /bin/bash user
             if [ "$?" -ne 0 ]; then
                 su -c "mkdir $DST" -s /bin/bash fsf
-                su -c "mv $DIR_LOCAL/$i/$y $DST" -s /bin/bash fsf
+                su -c "mv $DIR_LOCAL/$i/$y $DST" -s /bin/bash user
                 echo "===> Arquivo $y transferido com sucesso para o Google-Driver.  - $(date +%H:%M:%S)." >> "$FILE_LOG"
             else
-                su -c "mv $DIR_LOCAL/$i/$y $DST" -s /bin/bash fsf
+                su -c "mv $DIR_LOCAL/$i/$y $DST" -s /bin/bash user
                 echo "===> Arquivo $y transferido com sucesso para o Google-Driver.  - $(date +%H:%M:%S)." >> "$FILE_LOG"
             fi
         done
@@ -125,7 +125,7 @@ for i in $(ls -lh "$DIR_LOCAL" | tr -s ' ' | cut -f 9 -d " " -s); do
 done
 
 echo "===> Desconectando do Google-Driver...  - $(date +%H:%M:%S)." >> "$FILE_LOG"
-su -c "fusermount -u $DRIVE" -s /bin/bash fsf
+su -c "fusermount -u $DRIVE" -s /bin/bash user
 if [ "$?" -ne 0 ]; then
     echo "-*-*- Houve algum problema ao desconectar do Google-Driver." >> "$FILE_LOG"
     echo "" >> "$FILE_LOG"
