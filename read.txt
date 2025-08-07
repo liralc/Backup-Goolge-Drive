@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# CONFIGURAÇÕES
+REMOTE_USER="usuario"
+REMOTE_HOST="192.168.1.100"
+REMOTE_BACKUP_DIR="/tmp/mongo_backup"
+LOCAL_BACKUP_DIR="/var/backups/mongodb"
+DATABASE_NAME="meu_banco"
+MONGO_USER="usuario"
+MONGO_PASS="senha"
+CONTAINER_NAME="mongodb"  # Nome do container MongoDB
+MONGO_PORT="27017"        # Porta do MongoDB no container
+RETENTION_DAYS=7
+
+DATE=$(date +%Y-%m-%d_%H-%M)
+BACKUP_NAME="${DATABASE_NAME}_backup_$DATE"
+REMOTE_DUMP_PATH="$REMOTE_BACKUP_DIR/$BACKUP_NAME"
+ARCHIVE_NAME="$BACKUP_NAME.tar.gz"
+
+# Criar backup no servidor remoto usando Docker
+ssh $REMOTE_USER@$REMOTE_HOST << EOF
+  mkdir -p "$REMOTE_BACKUP_DIR"
+  
+  # Verificar se o container está rodando
+  if ! docker ps | grep -q "$CONTAINER_NAME"; then
+    echo "Erro: Container $CONTAINER_NAME não está rodando"
+    exit 1
+  fi
+  
+  # Executar mongodump dentro do container
+  docker exec "$CONTAINER_NAME" mongodump \
+    --username "$MONGO_USER" \
+    --password "$MONGO_PASS" \
+    --authenticationDatabase admin \
+    --db "$DATABASE_NAME" \
+    --out "/tmp/$BACKUP_NAME"
+  
+  # Copiar o backup do container para o host
+  docker cp "$CONTAINER_NAME:/tmp/$BACKUP_NAME" "$REMOTE_DUMP_PATH"
+  
+  # Limpar o backup temporário dentro do container
+  docker exec "$CONTAINER_NAME" rm -rf "/tmp/$BACKUP_NAME"
+  
+  # Criar arquivo compactado
+  tar -czf "$REMOTE_BACKUP_DIR/$ARCHIVE_NAME" -C "$REMOTE_BACKUP_DIR" "$BACKUP_NAME"
+  
+  # Remover diretório temporário no host
+  rm -rf "$REMOTE_DUMP_PATH"
+EOF
+
+# Verificar se o backup foi criado com sucesso
+if ssh $REMOTE_USER@$REMOTE_HOST "[ ! -f '$REMOTE_BACKUP_DIR/$ARCHIVE_NAME' ]"; then
+  echo "Erro: Falha ao criar backup no servidor remoto"
+  exit 1
+fi
+
+# Criar diretório local se não existir
+mkdir -p "$LOCAL_BACKUP_DIR"
+
+# Copiar backup para o servidor local
+echo "Transferindo backup para o servidor local..."
+scp "$REMOTE_USER@$REMOTE_HOST:$REMOTE_BACKUP_DIR/$ARCHIVE_NAME" "$LOCAL_BACKUP_DIR/"
+
+# Verificar se a transferência foi bem-sucedida
+if [ $? -eq 0 ]; then
+  echo "Backup transferido com sucesso para: $LOCAL_BACKUP_DIR/$ARCHIVE_NAME"
+  
+  # (Opcional) Apagar o arquivo remoto após transferência bem-sucedida
+  ssh $REMOTE_USER@$REMOTE_HOST "rm -f $REMOTE_BACKUP_DIR/$ARCHIVE_NAME"
+  
+  # Apagar backups antigos no servidor local
+  find "$LOCAL_BACKUP_DIR" -type f -name "*.tar.gz" -mtime +$RETENTION_DAYS -exec rm {} \;
+  echo "Backup via SSH concluído com sucesso!"
+else
+  echo "Erro: Falha na transferência do backup"
+  exit 1
+fi
